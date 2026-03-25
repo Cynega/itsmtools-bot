@@ -12,6 +12,11 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# Cargar st.secrets en os.environ para que el pipeline los lea igual que en local
+for key, value in st.secrets.items():
+    if key not in os.environ:
+        os.environ[key] = str(value)
+
 # Agregar el directorio raíz al path
 sys.path.insert(0, str(Path(__file__).parent))
 
