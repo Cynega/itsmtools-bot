@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python main.py --keyword \"best ITSM tools\" --country US --publish draft)",
+      "Bash(python main.py --keyword \"best ITSM tools\" --country US --publish draft --skip-research)",
+      "Bash(python main.py --keyword \"best ITSM tools\" --country US --publish draft --skip-research --skip-generate)"
+    ]
+  }
+}
