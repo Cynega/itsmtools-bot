@@ -61,11 +61,11 @@ def main(keyword: str, country: str, publish: str, skip_research: bool, skip_gen
     research_file = OUTPUT_DIR / "research.json"
     if skip_research and research_file.exists():
         console.log("[yellow]Skipping research — loading from output/research.json[/yellow]")
-        with open(research_file) as f:
+        with open(research_file, encoding="utf-8") as f:
             research = json.load(f)
     else:
         research = run_research(keyword, country)
-        with open(research_file, "w") as f:
+        with open(research_file, "w", encoding="utf-8") as f:
             json.dump(research, f, indent=2, ensure_ascii=False)
         console.log(f"[green]Research saved to[/green] {research_file}")
 
