@@ -98,7 +98,52 @@ Respuesta:
 }
 ```
 
-## Notas
+## Seguridad y privacidad
+
+La app aplica varias capas de defensa para evitar abuso de las APIs (DataForSEO,
+Anthropic, WordPress) y para no aparecer en buscadores ni ser scrapeada por LLMs.
+
+### A nivel código (ya aplicado)
+
+- `public/robots.txt` bloquea `User-agent: *` + lista explícita de crawlers de
+  IA (GPTBot, ClaudeBot, anthropic-ai, PerplexityBot, Google-Extended, CCBot,
+  Bytespider, Applebot-Extended, etc.).
+- Meta `<meta name="robots" content="noindex, nofollow, noarchive, nosnippet,
+  noimageindex">` inyectado en cada respuesta HTML.
+- Header HTTP `X-Robots-Tag` con los mismos directives en todas las rutas.
+  Más difícil de ignorar que `robots.txt` para crawlers de IA agresivos.
+- Headers de seguridad globales: HSTS preload, `X-Frame-Options: DENY`,
+  `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`,
+  `Permissions-Policy` denegando cámara/mic/geolocation/FLoC,
+  `Cross-Origin-Opener-Policy` y `Cross-Origin-Resource-Policy` en `same-origin`.
+- `poweredByHeader: false` para no filtrar que corre en Next.js.
+- `/api/generate` valida `Origin`/`Referer` contra el host actual:
+  bloquea cualquier POST que no venga del mismo dominio (cURL desde afuera,
+  scripts cross-origin, etc.).
+- Validación estricta de input: keyword ≤200 chars, country en lista blanca
+  (`US`/`GB`/`AU`/`CA`), status en lista blanca (`draft`/`publish`).
+- El error que devuelve el endpoint en caso de fallo es genérico para no
+  filtrar información del stack interno; el detalle queda en los logs.
+
+### A nivel Vercel (ACCIÓN REQUERIDA)
+
+La capa más importante: **encender Deployment Protection** para que solo vos
+puedas acceder a la URL pública. Sin esto, cualquiera con la URL puede gatillar
+la pipeline y consumir tus créditos de DataForSEO/Anthropic + crear drafts en
+WordPress.
+
+1. Vercel Dashboard → proyecto `itsmtools-bot` → **Settings** → **Deployment Protection**
+2. En **Vercel Authentication** elegí **"Standard Protection"** (incluido en Pro).
+   - Aplica tanto a Production como a Preview deployments.
+   - Solo miembros de tu team Vercel pueden acceder.
+3. Save.
+
+Si querés que sea accesible desde un dispositivo donde no estés logueado en
+Vercel (ej. una netbook nueva), usá **"Password Protection"** en lugar de
+Standard: te deja definir un password que cualquier visitante tiene que
+ingresar para entrar al sitio.
+
+### Notas
 
 - El artículo se publica en **inglés (US)** porque el sitio apunta a esa audiencia.
 - Por defecto se crea en **draft** para revisar antes de publicar.
