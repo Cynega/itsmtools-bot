@@ -9,10 +9,14 @@ un JSON con el resumen + URL del post de WordPress.
 """
 
 from http.server import BaseHTTPRequestHandler
+from http.cookies import SimpleCookie
 from urllib.parse import urlparse
+import hashlib
+import hmac
 import json
 import os
 import sys
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -29,11 +33,13 @@ REQUIRED_ENV = (
     "WP_USER",
     "WP_APP_PASSWORD",
     "ANTHROPIC_API_KEY",
+    "AUTH_SECRET",
 )
 
 ALLOWED_COUNTRIES = {"US", "GB", "AU", "CA"}
 ALLOWED_STATUSES = {"draft", "publish"}
 KEYWORD_MAX_LEN = 200
+AUTH_COOKIE = "auth"
 
 
 def derive_title(keyword: str) -> str:
@@ -41,26 +47,53 @@ def derive_title(keyword: str) -> str:
 
 
 def is_same_origin(headers) -> bool:
-    """Solo aceptamos requests cuyo Origin/Referer corresponda al host actual.
-
-    En Vercel, el host de la request llega en `x-forwarded-host`. Si no está
-    (ej. invocación directa desde otro dominio o curl), bloqueamos.
-    """
+    """Solo aceptamos requests cuyo Origin/Referer corresponda al host actual."""
     expected_host = headers.get("x-forwarded-host") or headers.get("host")
     if not expected_host:
         return False
-
-    origin = headers.get("origin")
-    referer = headers.get("referer")
-    candidate = origin or referer
+    candidate = headers.get("origin") or headers.get("referer")
     if not candidate:
         return False
-
     try:
         parsed = urlparse(candidate)
     except ValueError:
         return False
     return parsed.netloc.lower() == expected_host.lower()
+
+
+def verify_auth_cookie(headers) -> bool:
+    """Verifica el cookie HMAC firmado por /api/auth/login (Next.js)."""
+    secret = os.getenv("AUTH_SECRET")
+    if not secret:
+        return False
+    cookie_header = headers.get("cookie") or ""
+    if not cookie_header:
+        return False
+    try:
+        jar = SimpleCookie()
+        jar.load(cookie_header)
+    except Exception:
+        return False
+    morsel = jar.get(AUTH_COOKIE)
+    if not morsel:
+        return False
+    token = morsel.value
+    parts = token.split(".")
+    if len(parts) != 2:
+        return False
+    expiry_str, mac = parts
+    try:
+        expiry = int(expiry_str)
+    except ValueError:
+        return False
+    if expiry < int(time.time()):
+        return False
+    expected = hmac.new(
+        secret.encode("utf-8"),
+        expiry_str.encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+    return hmac.compare_digest(mac, expected)
 
 
 def run_pipeline(keyword: str, country: str, status: str) -> dict:
@@ -89,6 +122,9 @@ class handler(BaseHTTPRequestHandler):
     def do_POST(self):
         if not is_same_origin(self.headers):
             self._send(403, {"error": "forbidden"})
+            return
+        if not verify_auth_cookie(self.headers):
+            self._send(401, {"error": "unauthorized"})
             return
 
         try:

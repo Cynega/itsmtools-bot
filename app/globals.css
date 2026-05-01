@@ -2,9 +2,16 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Greys suaves: stone (cálido) en dark, neutral en light. Sin negro puro. */
 :root {
-  --background: 250 250 250;
-  --foreground: 23 23 23;
+  --background: 250 250 249; /* stone-50 */
+  --foreground: 28 25 23; /* stone-900 */
+}
+
+html.dark {
+  --background: 32 30 28; /* algo más claro que stone-900 */
+  --foreground: 214 211 209; /* stone-300, soft white */
+  color-scheme: dark;
 }
 
 html,

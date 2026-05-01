@@ -21,13 +21,29 @@ export const metadata: Metadata = {
   },
 };
 
+// Inline para aplicar el tema antes del primer paint y evitar flash blanco.
+const themeInitScript = `
+(function(){
+  try {
+    var stored = localStorage.getItem('theme');
+    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    if (stored === 'dark' || (stored === null && prefersDark)) {
+      document.documentElement.classList.add('dark');
+    }
+  } catch (e) {}
+})();
+`;
+
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   return (
-    <html lang="es">
+    <html lang="es" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+      </head>
       <body className="min-h-screen">{children}</body>
     </html>
   );

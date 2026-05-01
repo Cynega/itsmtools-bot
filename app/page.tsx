@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 type JobStatus = "idle" | "running" | "done" | "error";
 
@@ -24,6 +26,7 @@ export default function Home() {
   const [publishStatus, setPublishStatus] = useState<"draft" | "publish">("draft");
   const [jobs, setJobs] = useState<Job[]>([]);
   const [running, setRunning] = useState(false);
+  const router = useRouter();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -49,6 +52,10 @@ export default function Home() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ keyword, country, status: publishStatus }),
         });
+        if (res.status === 401) {
+          router.replace("/login");
+          return;
+        }
         const data: JobResult = await res.json();
         const ok = res.ok && data.publish?.success !== false;
         setJobs((prev) =>
@@ -74,16 +81,34 @@ export default function Home() {
     setRunning(false);
   }
 
+  async function handleLogout() {
+    await fetch("/api/auth/logout", { method: "POST" });
+    router.replace("/login");
+    router.refresh();
+  }
+
   return (
     <main className="mx-auto max-w-3xl px-6 py-12">
-      <header className="mb-8">
-        <h1 className="text-4xl font-bold tracking-tight">✍️ ITSM Content Bot</h1>
-        <p className="mt-2 text-neutral-500">
-          Generador automático de artículos SEO para itsmtools.com
-        </p>
+      <header className="mb-8 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-4xl font-bold tracking-tight">✍️ ITSM Content Bot</h1>
+          <p className="mt-2 text-neutral-500 dark:text-stone-400">
+            Generador automático de artículos SEO para itsmtools.com
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-600 transition hover:bg-neutral-100 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-300 dark:hover:bg-stone-700"
+          >
+            Salir
+          </button>
+        </div>
       </header>
 
-      <hr className="border-neutral-200" />
+      <hr className="border-neutral-200 dark:border-stone-700" />
 
       <form onSubmit={handleSubmit} className="my-8 space-y-6">
         <h2 className="text-2xl font-semibold">Configuración</h2>
@@ -97,7 +122,7 @@ export default function Home() {
             onChange={(e) => setKeywordsText(e.target.value)}
             rows={5}
             placeholder={"best ITSM tools\nbest help desk software\nITSM vs ITSM comparison"}
-            className="w-full rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
+            className="w-full rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100 dark:placeholder:text-stone-500"
             disabled={running}
             required
           />
@@ -109,7 +134,7 @@ export default function Home() {
             <select
               value={publishStatus}
               onChange={(e) => setPublishStatus(e.target.value as "draft" | "publish")}
-              className="w-full rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
+              className="w-full rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100"
               disabled={running}
             >
               <option value="draft">draft</option>
@@ -122,7 +147,7 @@ export default function Home() {
             <select
               value={country}
               onChange={(e) => setCountry(e.target.value)}
-              className="w-full rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
+              className="w-full rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100"
               disabled={running}
             >
               <option value="US">US</option>
@@ -151,7 +176,7 @@ export default function Home() {
         </section>
       )}
 
-      <footer className="mt-16 border-t border-neutral-200 pt-6 text-sm text-neutral-500">
+      <footer className="mt-16 border-t border-neutral-200 pt-6 text-sm text-neutral-500 dark:border-stone-700 dark:text-stone-400">
         itsmtools.com · ITSM Content Bot · Powered by Claude AI + DataForSEO
       </footer>
     </main>
@@ -161,13 +186,13 @@ export default function Home() {
 function JobCard({ job }: { job: Job }) {
   const { keyword, status, result } = job;
   return (
-    <article className="rounded-md border border-neutral-200 bg-white p-4">
+    <article className="rounded-md border border-neutral-200 bg-white p-4 dark:border-stone-700 dark:bg-stone-800">
       <header className="mb-2 flex items-center justify-between">
         <h3 className="font-medium">📄 {keyword}</h3>
         <StatusBadge status={status} />
       </header>
       {status === "running" && (
-        <p className="text-sm text-neutral-500">
+        <p className="text-sm text-neutral-500 dark:text-stone-400">
           Research → Generación → Publicación. Puede tardar 1–3 min.
         </p>
       )}
@@ -200,7 +225,7 @@ function JobCard({ job }: { job: Job }) {
         </div>
       )}
       {status === "error" && result && (
-        <p className="text-sm text-red-600">
+        <p className="text-sm text-red-600 dark:text-red-400">
           Error: {result.error || result.publish?.error || "fallo desconocido"}
         </p>
       )}
@@ -210,10 +235,10 @@ function JobCard({ job }: { job: Job }) {
 
 function StatusBadge({ status }: { status: JobStatus }) {
   const styles: Record<JobStatus, string> = {
-    idle: "bg-neutral-100 text-neutral-600",
-    running: "bg-amber-100 text-amber-700",
-    done: "bg-emerald-100 text-emerald-700",
-    error: "bg-red-100 text-red-700",
+    idle: "bg-neutral-100 text-neutral-600 dark:bg-stone-700 dark:text-stone-300",
+    running: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
+    done: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
+    error: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
   };
   const label: Record<JobStatus, string> = {
     idle: "En cola",
