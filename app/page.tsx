@@ -198,13 +198,7 @@ function JobCard({ job }: { job: Job }) {
       )}
       {status === "done" && result && (
         <div className="space-y-1 text-sm">
-          {result.research && (
-            <p>
-              Research: vol <strong>{result.research.volume ?? "N/A"}</strong> · CPC{" "}
-              <strong>${result.research.cpc ?? "N/A"}</strong> · competidores{" "}
-              <strong>{result.research.competitors ?? 0}</strong>
-            </p>
-          )}
+          {result.research && <ResearchLine research={result.research} />}
           {result.article && (
             <p>
               Artículo: ~<strong>{result.article.word_count}</strong> palabras
@@ -230,6 +224,52 @@ function JobCard({ job }: { job: Job }) {
         </p>
       )}
     </article>
+  );
+}
+
+function isValidMetric(v: unknown): v is number | string {
+  if (v === null || v === undefined) return false;
+  if (typeof v === "string" && (v.trim() === "" || v.toUpperCase() === "N/A")) return false;
+  return true;
+}
+
+function ResearchLine({
+  research,
+}: {
+  research: NonNullable<JobResult["research"]>;
+}) {
+  const hasVol = isValidMetric(research.volume);
+  const hasCpc = isValidMetric(research.cpc);
+  const competitors = research.competitors ?? 0;
+
+  if (!hasVol && !hasCpc) {
+    return (
+      <p>
+        Research:{" "}
+        <em className="text-neutral-500 dark:text-stone-400">
+          sin datos suficientes en DataForSEO
+        </em>{" "}
+        · competidores <strong>{competitors}</strong>
+      </p>
+    );
+  }
+
+  return (
+    <p>
+      Research:{" "}
+      {hasVol && (
+        <>
+          vol <strong>{research.volume}</strong>
+        </>
+      )}
+      {hasVol && hasCpc && " · "}
+      {hasCpc && (
+        <>
+          CPC <strong>${research.cpc}</strong>
+        </>
+      )}
+      {" · "}competidores <strong>{competitors}</strong>
+    </p>
   );
 }
 
