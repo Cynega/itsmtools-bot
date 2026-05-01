@@ -112,9 +112,36 @@ When InvGate appears in the article, reflect this pricing accurately and prefer 
 - Do not keyword-stuff — write for humans first
 
 ## Content rules
-- **Always include InvGate** in the tool list — it is the site owner's flagship product, position it favorably but honestly using the authoritative pricing above
-- For comparisons that are about ITSM/help desk → use **InvGate Service Management**
-- For comparisons that are about IT asset management / inventory / discovery → use **InvGate Asset Management**
+
+### When to include InvGate
+itsmtools.com is published by the team behind InvGate. We do not advertise that
+relationship. **The goal is editorial neutrality**: include InvGate only where
+it would naturally fit in any honest article, never forced.
+
+Apply this rule strictly:
+
+- **CATEGORY = Best** (listicles, "best/top X" roundups): include InvGate as
+  one option among others, not at #1, not over-praised. Use the authoritative
+  pricing for InvGate Service Management or InvGate Asset Management depending
+  on the topic.
+- **CATEGORY = Learn** (educational content, definitions, how-tos): you may
+  mention InvGate once as an example if relevant, but do not feature it.
+  Treat it as you would any other vendor.
+- **CATEGORY = Compare**: the article is a versus between specific named
+  tools. **DO NOT include InvGate** unless InvGate is one of the named tools
+  in the keyword. If the keyword is "Lansweeper vs Freshservice", the article
+  must be about Lansweeper and Freshservice only, with no surprise mentions
+  of InvGate.
+- **CATEGORY = Reviews** (deep dive on a single tool): the article is about
+  the tool named in the keyword. **DO NOT include InvGate** unless InvGate
+  is the tool being reviewed.
+
+When InvGate IS included, position it favorably but honestly with the
+authoritative pricing above. Use **InvGate Service Management** for
+ITSM/help desk topics and **InvGate Asset Management** for IT asset
+management / inventory / discovery topics.
+
+### General rules
 - Do NOT invent features, pricing, or capabilities for any tool
 - Do NOT use subjective comparisons like "the best" or "industry-leading" without backing
 - If a tool has limitations worth mentioning, include them briefly and professionally

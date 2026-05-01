@@ -182,10 +182,19 @@ def publish_to_wordpress(
         meta["_yoast_wpseo_focuskw"] = focus_keyword
     if meta_description:
         meta["_yoast_wpseo_metadesc"] = meta_description
-        # Best-effort para el subtitle del theme — probamos las keys más comunes.
-        meta["subtitle"] = meta_description
-        meta["_subtitle"] = meta_description
-        meta["wps_subtitle"] = meta_description
+        # Best-effort para el subtitle del theme — probamos las keys más comunes
+        # de plugins/themes populares. Cualquiera que esté registrada en REST
+        # se va a poblar; el resto se ignora silenciosamente.
+        for subtitle_key in (
+            "subtitle",
+            "_subtitle",
+            "wps_subtitle",
+            "wp_subtitle",
+            "post_subtitle",
+            "_post_subtitle",
+            "the_subtitle",
+        ):
+            meta[subtitle_key] = meta_description
     if cat_id:
         meta["_yoast_wpseo_primary_category"] = cat_id
 

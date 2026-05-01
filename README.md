@@ -127,6 +127,26 @@ Anthropic, WordPress) y para no aparecer en buscadores ni ser scrapeada por LLMs
 - El error que devuelve el endpoint en caso de fallo es genérico para no
   filtrar información del stack interno; el detalle queda en los logs.
 
+### WordPress mu-plugin (REQUERIDO para Yoast + Subtitle)
+
+WP REST API por defecto NO permite escribir los meta fields de Yoast SEO ni
+los del Subtitle del theme: hay que registrarlos con `show_in_rest = true`.
+Esto se hace con un must-use plugin de 70 líneas que está en `wp/itsmtools-bot-rest-meta.php`.
+
+**Instalación (one-time):**
+
+1. Bajá `wp/itsmtools-bot-rest-meta.php` del repo.
+2. Conectate a tu WP por SFTP o usá el File Manager del hosting.
+3. Andá a `/wp-content/`.
+4. Si no existe, creá la carpeta `mu-plugins/` (debe llamarse exactamente así,
+   en minúsculas). Mu-plugins = "must-use plugins" — WP los auto-carga sin
+   necesidad de activarlos en el panel.
+5. Subí el archivo dentro: `/wp-content/mu-plugins/itsmtools-bot-rest-meta.php`.
+6. Listo. Probá generando un draft nuevo: el focus keyphrase, meta description,
+   primary category y subtitle deberían aparecer en WP/Yoast.
+
+Sin este plugin, el draft se publica igual pero esos campos quedan vacíos.
+
 ### Auth con password (DIY)
 
 La app implementa su propio gate con password — sin depender de Vercel

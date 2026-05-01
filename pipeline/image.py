@@ -52,26 +52,33 @@ def fetch_image(query: str) -> dict | None:
 
     headers = {"Authorization": f"Client-ID {access_key}"}
 
-    log(f"Searching Unsplash for: {query!r}")
+    log(f"Fetching random Unsplash photo for: {query!r}")
+    # /photos/random devuelve uno distinto en cada llamada para la misma query,
+    # mejor que /search/photos para no repetir fotos con queries similares.
     try:
         with httpx.Client(timeout=15) as client:
             r = client.get(
-                f"{UNSPLASH_API}/search/photos",
-                params={"query": query, "orientation": "landscape", "per_page": 5},
+                f"{UNSPLASH_API}/photos/random",
+                params={
+                    "query": query,
+                    "orientation": "landscape",
+                    "content_filter": "high",
+                },
                 headers=headers,
             )
+            if r.status_code == 404:
+                log("no Unsplash result for this query")
+                return None
             r.raise_for_status()
-            data = r.json()
+            photo = r.json()
     except Exception as e:
-        log(f"Unsplash search failed: {e}")
+        log(f"Unsplash random fetch failed: {e}")
         return None
 
-    results = data.get("results") or []
-    if not results:
-        log("no Unsplash results")
+    if not isinstance(photo, dict):
+        log("unexpected Unsplash payload")
         return None
 
-    photo = results[0]
     raw_url = photo.get("urls", {}).get("raw")
     download_endpoint = photo.get("links", {}).get("download_location")
     user = photo.get("user") or {}
