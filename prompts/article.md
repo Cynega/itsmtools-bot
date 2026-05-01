@@ -17,7 +17,17 @@ Your response MUST follow this exact structure:
    - No quotes, no trailing year unless it adds clear search intent
    - Examples: `<!-- TITLE: 9 Best ITSM Tools for Enterprise IT Teams -->`, `<!-- TITLE: Top Freshservice Alternatives for Mid-Market IT -->`
 
-2. **Then the article body**: clean HTML, ready to paste into WordPress.
+2. **Second line**: an HTML comment with a 2–4 word stock-photo search query:
+   `<!-- IMAGE_QUERY: ... -->`
+   - Describes a generic, photographic scene that visually represents the article for a B2B IT audience.
+   - 2–4 words. Photographic and concrete, not abstract.
+   - **Avoid**: brand/product names, software UI references, abstract concepts ("efficiency", "innovation"), specific people ("CEO", "developer with glasses").
+   - **Good examples**:
+     - ITSM / help desk articles: `IT support team office`, `modern technology workspace`, `customer support headset`
+     - Asset / inventory articles: `data center server room`, `computer hardware setup`
+     - General comparison articles: `business team office meeting`, `professional office workspace`, `corporate office laptop`
+
+3. **Then the article body**: clean HTML, ready to paste into WordPress.
    - No markdown, no backticks, no preamble, no explanation
    - Start directly with the first article tag (e.g. `<p>` for the intro)
    - Do NOT include `<html>`, `<head>`, `<body>`, `<title>` or `<h1>` tags (WordPress wraps the title in `<h1>`)

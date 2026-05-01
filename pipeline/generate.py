@@ -19,19 +19,26 @@ def log(msg: str) -> None:
 PROMPTS_DIR = Path(__file__).parent.parent / "prompts"
 
 TITLE_RE = re.compile(r"<!--\s*TITLE:\s*(.+?)\s*-->", re.IGNORECASE | re.DOTALL)
+IMAGE_QUERY_RE = re.compile(r"<!--\s*IMAGE_QUERY:\s*(.+?)\s*-->", re.IGNORECASE | re.DOTALL)
 
 
-def extract_title(text: str) -> tuple[str | None, str]:
-    """Extrae el título del HTML comment al inicio y devuelve (titulo, html_sin_comment).
-
-    Si no encuentra el comment, devuelve (None, text) tal cual.
-    """
-    match = TITLE_RE.search(text)
+def _extract_first(pattern: re.Pattern, text: str) -> tuple[str | None, str]:
+    match = pattern.search(text)
     if not match:
         return None, text
-    title = match.group(1).strip()
-    cleaned = (text[: match.start()] + text[match.end() :]).lstrip()
-    return title or None, cleaned
+    value = match.group(1).strip()
+    cleaned = (text[: match.start()] + text[match.end() :])
+    return value or None, cleaned
+
+
+def extract_metadata(text: str) -> tuple[str | None, str | None, str]:
+    """Saca <!-- TITLE: ... --> y <!-- IMAGE_QUERY: ... --> del HTML.
+
+    Devuelve (title, image_query, html_limpio).
+    """
+    title, text = _extract_first(TITLE_RE, text)
+    image_query, text = _extract_first(IMAGE_QUERY_RE, text)
+    return title, image_query, text.lstrip()
 
 
 def load_system_prompt() -> str:
@@ -109,8 +116,11 @@ def generate_article(research: dict) -> dict:
     )
 
     raw = message.content[0].text
-    title, article_html = extract_title(raw)
+    title, image_query, article_html = extract_metadata(raw)
     word_count = len(article_html.split())
-    log(f"Article generated: title={title!r} | ~{word_count} words | {len(article_html)} chars")
+    log(
+        f"Article generated: title={title!r} | image_query={image_query!r} | "
+        f"~{word_count} words | {len(article_html)} chars"
+    )
 
-    return {"title": title, "html": article_html}
+    return {"title": title, "image_query": image_query, "html": article_html}

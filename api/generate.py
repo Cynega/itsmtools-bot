@@ -22,9 +22,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
+import re
+
 from pipeline.research import run_research
 from pipeline.generate import generate_article
-from pipeline.publish import publish_to_wordpress
+from pipeline.publish import publish_to_wordpress, upload_media
+from pipeline.image import fetch_image, attribution_html
 
 REQUIRED_ENV = (
     "DATAFORSEO_LOGIN",
@@ -45,6 +48,12 @@ AUTH_COOKIE = "auth"
 def fallback_title(keyword: str) -> str:
     """Solo se usa si Claude no devolvió el comment <!-- TITLE: ... -->."""
     return f"{keyword.strip().title()}: Top Picks for 2026"
+
+
+def slugify(value: str, max_len: int = 50) -> str:
+    """Slug ASCII para nombres de archivo. Solo a-z0-9 y guiones."""
+    slug = re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
+    return slug[:max_len] or "image"
 
 
 def is_same_origin(headers) -> bool:
@@ -102,11 +111,32 @@ def run_pipeline(keyword: str, country: str, status: str) -> dict:
     article = generate_article(research)
     article_html = article["html"]
     title = article.get("title") or fallback_title(keyword)
+    image_query = article.get("image_query")
+
+    # Featured image (Unsplash) — opcional, si falla no rompe el draft.
+    wp_url = os.getenv("WP_URL", "").rstrip("/")
+    featured_media_id: int | None = None
+    image_used = False
+    image_meta = fetch_image(image_query) if image_query else None
+    if image_meta:
+        filename = f"{slugify(keyword)}-featured.jpg"
+        featured_media_id = upload_media(
+            wp_url=wp_url,
+            image_bytes=image_meta["bytes"],
+            mime=image_meta["mime"],
+            filename=filename,
+            alt_text=image_meta.get("alt") or image_query or keyword,
+        )
+        if featured_media_id:
+            article_html = article_html.rstrip() + "\n" + attribution_html(image_meta)
+            image_used = True
+
     publish = publish_to_wordpress(
         title=title,
         content_html=article_html,
         keyword=keyword,
         status=status,
+        featured_media_id=featured_media_id,
     )
     kd = research.get("keyword_data", {})
     return {
@@ -117,6 +147,11 @@ def run_pipeline(keyword: str, country: str, status: str) -> dict:
             "competitors": len(research.get("competitors", [])),
         },
         "article": {"word_count": len(article_html.split()), "title": title},
+        "image": {
+            "used": image_used,
+            "query": image_query,
+            "photographer": image_meta.get("photographer_name") if image_meta else None,
+        },
         "publish": publish,
     }
 

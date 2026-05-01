@@ -40,6 +40,58 @@ def get_or_create_tag(wp_url: str, tag_name: str, headers: dict) -> int | None:
     return None
 
 
+def upload_media(
+    wp_url: str,
+    image_bytes: bytes,
+    mime: str,
+    filename: str,
+    alt_text: str = "",
+) -> int | None:
+    """Sube bytes a /wp-json/wp/v2/media y devuelve el ID, o None si falla."""
+    user = os.getenv("WP_USER")
+    app_password = os.getenv("WP_APP_PASSWORD", "").replace(" ", "")
+    token = base64.b64encode(f"{user}:{app_password}".encode()).decode()
+    upload_url = f"{wp_url}/wp-json/wp/v2/media"
+
+    log(f"Uploading {filename} ({len(image_bytes) // 1024} KB) to WP media")
+    with httpx.Client(timeout=60) as client:
+        try:
+            resp = client.post(
+                upload_url,
+                content=image_bytes,
+                headers={
+                    "Authorization": f"Basic {token}",
+                    "Content-Type": mime,
+                    "Content-Disposition": f'attachment; filename="{filename}"',
+                },
+            )
+        except Exception as e:
+            log(f"media upload error: {e}")
+            return None
+
+        if resp.status_code not in (200, 201):
+            log(f"media upload failed: {resp.status_code} {resp.text[:200]}")
+            return None
+
+        media_id = resp.json().get("id")
+        log(f"uploaded as media ID {media_id}")
+
+        if alt_text and media_id:
+            try:
+                client.post(
+                    f"{upload_url}/{media_id}",
+                    json={"alt_text": alt_text},
+                    headers={
+                        "Authorization": f"Basic {token}",
+                        "Content-Type": "application/json",
+                    },
+                )
+            except Exception as e:
+                log(f"alt_text update failed (non-fatal): {e}")
+
+        return media_id
+
+
 def get_or_create_category(wp_url: str, cat_name: str, headers: dict) -> int | None:
     """Busca una categoría existente o la crea. Devuelve el ID."""
     search_url = f"{wp_url}/wp-json/wp/v2/categories"
@@ -61,6 +113,7 @@ def publish_to_wordpress(
     status: str = "draft",
     tags: list[str] = None,
     category: str = "ITSM Tools",
+    featured_media_id: int | None = None,
 ) -> dict:
     """
     Publica o crea en borrador un post en WordPress.
@@ -96,6 +149,8 @@ def publish_to_wordpress(
     }
     if cat_id:
         payload["categories"] = [cat_id]
+    if featured_media_id:
+        payload["featured_media"] = featured_media_id
 
     # Crear post
     post_url = f"{wp_url}/wp-json/wp/v2/posts"
