@@ -1,8 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { sign, safeEqual, AUTH_COOKIE, AUTH_MAX_AGE } from "@/lib/auth";
 
-export const runtime = "edge";
-
 export async function POST(req: NextRequest) {
   const expected = process.env.APP_PASSWORD;
   if (!expected) {
