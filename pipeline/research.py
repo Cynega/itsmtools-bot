@@ -139,7 +139,7 @@ def scrape_competitor(url: str) -> dict:
         log(f"Error scraping {url}: {e}")
         return {"url": url, "error": str(e)}
 
-    soup = BeautifulSoup(html, "lxml")
+    soup = BeautifulSoup(html, "html.parser")
 
     # Meta
     title = soup.title.string.strip() if soup.title else ""
