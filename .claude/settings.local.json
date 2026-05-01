@@ -3,7 +3,9 @@
     "allow": [
       "Bash(python main.py --keyword \"best ITSM tools\" --country US --publish draft)",
       "Bash(python main.py --keyword \"best ITSM tools\" --country US --publish draft --skip-research)",
-      "Bash(python main.py --keyword \"best ITSM tools\" --country US --publish draft --skip-research --skip-generate)"
+      "Bash(python main.py --keyword \"best ITSM tools\" --country US --publish draft --skip-research --skip-generate)",
+      "mcp__180b2294-c0a2-4d62-bef1-b13cf7e82b1f__list_teams",
+      "mcp__180b2294-c0a2-4d62-bef1-b13cf7e82b1f__list_projects"
     ]
   }
 }
