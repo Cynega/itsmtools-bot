@@ -42,7 +42,8 @@ KEYWORD_MAX_LEN = 200
 AUTH_COOKIE = "auth"
 
 
-def derive_title(keyword: str) -> str:
+def fallback_title(keyword: str) -> str:
+    """Solo se usa si Claude no devolvió el comment <!-- TITLE: ... -->."""
     return f"{keyword.strip().title()}: Top Picks for 2026"
 
 
@@ -98,9 +99,11 @@ def verify_auth_cookie(headers) -> bool:
 
 def run_pipeline(keyword: str, country: str, status: str) -> dict:
     research = run_research(keyword, country)
-    article_html = generate_article(research)
+    article = generate_article(research)
+    article_html = article["html"]
+    title = article.get("title") or fallback_title(keyword)
     publish = publish_to_wordpress(
-        title=derive_title(keyword),
+        title=title,
         content_html=article_html,
         keyword=keyword,
         status=status,
@@ -113,7 +116,7 @@ def run_pipeline(keyword: str, country: str, status: str) -> dict:
             "cpc": kd.get("cpc"),
             "competitors": len(research.get("competitors", [])),
         },
-        "article": {"word_count": len(article_html.split())},
+        "article": {"word_count": len(article_html.split()), "title": title},
         "publish": publish,
     }
 

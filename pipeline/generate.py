@@ -7,6 +7,7 @@ Fase 3 de la pipeline:
 """
 
 import os
+import re
 import anthropic
 from pathlib import Path
 
@@ -16,6 +17,21 @@ def log(msg: str) -> None:
 
 
 PROMPTS_DIR = Path(__file__).parent.parent / "prompts"
+
+TITLE_RE = re.compile(r"<!--\s*TITLE:\s*(.+?)\s*-->", re.IGNORECASE | re.DOTALL)
+
+
+def extract_title(text: str) -> tuple[str | None, str]:
+    """Extrae el título del HTML comment al inicio y devuelve (titulo, html_sin_comment).
+
+    Si no encuentra el comment, devuelve (None, text) tal cual.
+    """
+    match = TITLE_RE.search(text)
+    if not match:
+        return None, text
+    title = match.group(1).strip()
+    cleaned = (text[: match.start()] + text[match.end() :]).lstrip()
+    return title or None, cleaned
 
 
 def load_system_prompt() -> str:
@@ -74,8 +90,8 @@ Based on this research, write the full article. Follow all instructions in your 
 """
 
 
-def generate_article(research: dict) -> str:
-    """Llama a Claude API y devuelve el artículo en HTML."""
+def generate_article(research: dict) -> dict:
+    """Llama a Claude API y devuelve {'title': str | None, 'html': str}."""
     log("FASE 3 — Generación con Claude")
     log(f"Generating article for: {research['keyword']}")
 
@@ -92,8 +108,9 @@ def generate_article(research: dict) -> str:
         messages=[{"role": "user", "content": user_message}]
     )
 
-    article_html = message.content[0].text
+    raw = message.content[0].text
+    title, article_html = extract_title(raw)
     word_count = len(article_html.split())
-    log(f"Article generated: ~{word_count} words | {len(article_html)} chars")
+    log(f"Article generated: title={title!r} | ~{word_count} words | {len(article_html)} chars")
 
-    return article_html
+    return {"title": title, "html": article_html}
