@@ -112,6 +112,9 @@ def run_pipeline(keyword: str, country: str, status: str) -> dict:
     article_html = article["html"]
     title = article.get("title") or fallback_title(keyword)
     image_query = article.get("image_query")
+    meta_description = article.get("meta_description") or ""
+    category_name = article.get("category")
+    tag_names = article.get("tags") or []
 
     # Featured image (Unsplash) — opcional, si falla no rompe el draft.
     wp_url = os.getenv("WP_URL", "").rstrip("/")
@@ -136,6 +139,10 @@ def run_pipeline(keyword: str, country: str, status: str) -> dict:
         content_html=article_html,
         keyword=keyword,
         status=status,
+        tag_names=tag_names,
+        category_name=category_name,
+        meta_description=meta_description,
+        focus_keyword=keyword,
         featured_media_id=featured_media_id,
     )
     kd = research.get("keyword_data", {})
@@ -146,7 +153,13 @@ def run_pipeline(keyword: str, country: str, status: str) -> dict:
             "cpc": kd.get("cpc"),
             "competitors": len(research.get("competitors", [])),
         },
-        "article": {"word_count": len(article_html.split()), "title": title},
+        "article": {
+            "word_count": len(article_html.split()),
+            "title": title,
+            "meta_description": meta_description,
+            "category": publish.get("category"),
+            "tags": publish.get("tags"),
+        },
         "image": {
             "used": image_used,
             "query": image_query,

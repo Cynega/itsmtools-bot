@@ -7,27 +7,34 @@ Write high-quality, long-form comparison and listicle articles for itsmtools.com
 
 ## Output format
 
-Your response MUST follow this exact structure:
+Your response MUST start with the following 5 HTML comments **in this exact order**, one per line, then the article body. Do NOT skip any of them.
 
-1. **First line**: an HTML comment with the SEO title:
-   `<!-- TITLE: Your SEO-optimized title here -->`
-   - 50–65 characters
-   - Includes the primary keyword naturally near the start
-   - Compelling and click-worthy, not generic
-   - No quotes, no trailing year unless it adds clear search intent
-   - Examples: `<!-- TITLE: 9 Best ITSM Tools for Enterprise IT Teams -->`, `<!-- TITLE: Top Freshservice Alternatives for Mid-Market IT -->`
+1. **TITLE** — SEO-optimized title (50–65 characters, includes the primary keyword near the start, no quotes):
+   `<!-- TITLE: 9 Best ITSM Tools for Enterprise IT Teams -->`
 
-2. **Second line**: an HTML comment with a 2–4 word stock-photo search query:
-   `<!-- IMAGE_QUERY: ... -->`
-   - Describes a generic, photographic scene that visually represents the article for a B2B IT audience.
-   - 2–4 words. Photographic and concrete, not abstract.
-   - **Avoid**: brand/product names, software UI references, abstract concepts ("efficiency", "innovation"), specific people ("CEO", "developer with glasses").
-   - **Good examples**:
-     - ITSM / help desk articles: `IT support team office`, `modern technology workspace`, `customer support headset`
-     - Asset / inventory articles: `data center server room`, `computer hardware setup`
-     - General comparison articles: `business team office meeting`, `professional office workspace`, `corporate office laptop`
+2. **IMAGE_QUERY** — 2–4 word stock-photo search query, photographic and concrete (no brand names, no abstract concepts, no software UI references):
+   `<!-- IMAGE_QUERY: IT support team office -->`
+   - Good examples by topic:
+     - ITSM / help desk: `IT support team office`, `customer support headset`
+     - Asset / inventory: `data center server room`, `computer hardware setup`
+     - General comparisons: `business team office meeting`, `professional office workspace`
 
-3. **Then the article body**: clean HTML, ready to paste into WordPress.
+3. **META_DESCRIPTION** — 140–160 character meta description, includes the primary keyword naturally, no quotes, action-oriented:
+   `<!-- META_DESCRIPTION: Compare the top ITSM tools for enterprise IT teams. Side-by-side features, pricing, and recommendations to pick the right platform. -->`
+
+4. **CATEGORY** — exactly one of: `Best`, `Compare`, `Learn`, `Reviews`. Default to `Best` if uncertain:
+   `<!-- CATEGORY: Best -->`
+   - **Best**: "best X", "top X", listicles, ranked roundups
+   - **Compare**: "X vs Y", "X alternatives", "X vs Y vs Z"
+   - **Learn**: how-to, what-is, beginner guides, definitions
+   - **Reviews**: deep dive on a single tool
+
+5. **TAGS** — comma-separated, 2–4 tags chosen ONLY from this whitelist (case-insensitive):
+   `ITSM`, `ITIL`, `Service Desk`, `Incident Management`, `Change Management`, `Ticketing`, `Knowledge Management`, `Problem Management`, `IT Support`
+   `<!-- TAGS: ITSM, IT Support, Ticketing -->`
+   - Pick the ones most relevant to the article. Do NOT invent new tags. Do NOT include the focus keyword as a tag unless it matches the whitelist exactly.
+
+6. **Then the article body**: clean HTML, ready to paste into WordPress.
    - No markdown, no backticks, no preamble, no explanation
    - Start directly with the first article tag (e.g. `<p>` for the intro)
    - Do NOT include `<html>`, `<head>`, `<body>`, `<title>` or `<h1>` tags (WordPress wraps the title in `<h1>`)

@@ -20,6 +20,9 @@ PROMPTS_DIR = Path(__file__).parent.parent / "prompts"
 
 TITLE_RE = re.compile(r"<!--\s*TITLE:\s*(.+?)\s*-->", re.IGNORECASE | re.DOTALL)
 IMAGE_QUERY_RE = re.compile(r"<!--\s*IMAGE_QUERY:\s*(.+?)\s*-->", re.IGNORECASE | re.DOTALL)
+META_DESC_RE = re.compile(r"<!--\s*META_DESCRIPTION:\s*(.+?)\s*-->", re.IGNORECASE | re.DOTALL)
+CATEGORY_RE = re.compile(r"<!--\s*CATEGORY:\s*(.+?)\s*-->", re.IGNORECASE | re.DOTALL)
+TAGS_RE = re.compile(r"<!--\s*TAGS:\s*(.+?)\s*-->", re.IGNORECASE | re.DOTALL)
 
 
 def _extract_first(pattern: re.Pattern, text: str) -> tuple[str | None, str]:
@@ -27,18 +30,29 @@ def _extract_first(pattern: re.Pattern, text: str) -> tuple[str | None, str]:
     if not match:
         return None, text
     value = match.group(1).strip()
-    cleaned = (text[: match.start()] + text[match.end() :])
+    cleaned = text[: match.start()] + text[match.end() :]
     return value or None, cleaned
 
 
-def extract_metadata(text: str) -> tuple[str | None, str | None, str]:
-    """Saca <!-- TITLE: ... --> y <!-- IMAGE_QUERY: ... --> del HTML.
+def extract_metadata(text: str) -> dict:
+    """Saca todos los HTML comments de metadata del top y devuelve un dict.
 
-    Devuelve (title, image_query, html_limpio).
+    Keys: title, image_query, meta_description, category, tags, html.
     """
     title, text = _extract_first(TITLE_RE, text)
     image_query, text = _extract_first(IMAGE_QUERY_RE, text)
-    return title, image_query, text.lstrip()
+    meta_desc, text = _extract_first(META_DESC_RE, text)
+    category, text = _extract_first(CATEGORY_RE, text)
+    tags_raw, text = _extract_first(TAGS_RE, text)
+    tags = [t.strip() for t in (tags_raw or "").split(",") if t.strip()]
+    return {
+        "title": title,
+        "image_query": image_query,
+        "meta_description": meta_desc,
+        "category": category,
+        "tags": tags,
+        "html": text.lstrip(),
+    }
 
 
 def load_system_prompt() -> str:
@@ -116,11 +130,14 @@ def generate_article(research: dict) -> dict:
     )
 
     raw = message.content[0].text
-    title, image_query, article_html = extract_metadata(raw)
-    word_count = len(article_html.split())
+    meta = extract_metadata(raw)
+    word_count = len(meta["html"].split())
     log(
-        f"Article generated: title={title!r} | image_query={image_query!r} | "
-        f"~{word_count} words | {len(article_html)} chars"
+        f"Article generated: title={meta['title']!r} "
+        f"image_query={meta['image_query']!r} "
+        f"category={meta['category']!r} "
+        f"tags={meta['tags']!r} "
+        f"meta_desc_len={len(meta['meta_description'] or '')} "
+        f"~{word_count} words"
     )
-
-    return {"title": title, "image_query": image_query, "html": article_html}
+    return meta

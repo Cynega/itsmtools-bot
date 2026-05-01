@@ -1,18 +1,37 @@
 """
 publish.py
 Fase 4 de la pipeline:
-- Recibe el HTML generado
-- Lo publica en WordPress via REST API
-- Devuelve la URL del post creado
+- Recibe el HTML generado + metadata (excerpt, focus keyword, category, tags)
+- Sube imagen como media de WordPress (si vino)
+- Resuelve categoría y tags contra whitelists, sin crear nuevos
+- Crea el post en WP con featured image, excerpt y meta de Yoast
 """
 
 import os
+import re
 import base64
 import httpx
 
 
 def log(msg: str) -> None:
     print(f"[publish] {msg}", flush=True)
+
+
+# Whitelists — las categorías y tags tienen que existir ya en WP.
+# Cualquier valor fuera de estas listas se descarta silenciosamente.
+ALLOWED_CATEGORIES = ["Best", "Compare", "Learn", "Reviews"]
+DEFAULT_CATEGORY = "Best"
+ALLOWED_TAGS = [
+    "ITSM",
+    "ITIL",
+    "Service Desk",
+    "Incident Management",
+    "Change Management",
+    "Ticketing",
+    "Knowledge Management",
+    "Problem Management",
+    "IT Support",
+]
 
 
 def get_wp_headers() -> dict:
@@ -25,19 +44,43 @@ def get_wp_headers() -> dict:
     }
 
 
-def get_or_create_tag(wp_url: str, tag_name: str, headers: dict) -> int | None:
-    """Busca un tag existente o lo crea. Devuelve el ID."""
-    search_url = f"{wp_url}/wp-json/wp/v2/tags"
-    resp = httpx.get(search_url, params={"search": tag_name}, headers=headers, timeout=15)
-    tags = resp.json()
-    if tags and isinstance(tags, list):
-        return tags[0]["id"]
+def slugify(name: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
 
-    # Crear si no existe
-    resp = httpx.post(search_url, json={"name": tag_name}, headers=headers, timeout=15)
-    if resp.status_code == 201:
-        return resp.json()["id"]
+
+def resolve_term_id(
+    wp_url: str, taxonomy: str, name: str, headers: dict
+) -> int | None:
+    """Busca un term existente por slug. Nunca crea. Devuelve ID o None."""
+    slug = slugify(name)
+    if not slug:
+        return None
+    url = f"{wp_url}/wp-json/wp/v2/{taxonomy}"
+    try:
+        with httpx.Client(timeout=15) as client:
+            resp = client.get(url, params={"slug": slug}, headers=headers)
+        if resp.status_code != 200:
+            log(f"resolve {taxonomy}/{slug}: HTTP {resp.status_code}")
+            return None
+        items = resp.json()
+        if isinstance(items, list) and items:
+            return items[0].get("id")
+    except Exception as e:
+        log(f"resolve {taxonomy}/{slug} failed: {e}")
     return None
+
+
+def filter_to_whitelist(
+    names: list[str], whitelist: list[str]
+) -> list[str]:
+    """Devuelve los nombres canónicos del whitelist que matchean (case-insensitive)."""
+    by_lower = {w.lower(): w for w in whitelist}
+    out: list[str] = []
+    for n in names or []:
+        canonical = by_lower.get((n or "").strip().lower())
+        if canonical and canonical not in out:
+            out.append(canonical)
+    return out
 
 
 def upload_media(
@@ -92,31 +135,21 @@ def upload_media(
         return media_id
 
 
-def get_or_create_category(wp_url: str, cat_name: str, headers: dict) -> int | None:
-    """Busca una categoría existente o la crea. Devuelve el ID."""
-    search_url = f"{wp_url}/wp-json/wp/v2/categories"
-    resp = httpx.get(search_url, params={"search": cat_name}, headers=headers, timeout=15)
-    cats = resp.json()
-    if cats and isinstance(cats, list):
-        return cats[0]["id"]
-
-    resp = httpx.post(search_url, json={"name": cat_name}, headers=headers, timeout=15)
-    if resp.status_code == 201:
-        return resp.json()["id"]
-    return None
-
-
 def publish_to_wordpress(
     title: str,
     content_html: str,
     keyword: str,
     status: str = "draft",
-    tags: list[str] = None,
-    category: str = "ITSM Tools",
+    tag_names: list[str] | None = None,
+    category_name: str | None = None,
+    meta_description: str = "",
+    focus_keyword: str = "",
     featured_media_id: int | None = None,
 ) -> dict:
     """
-    Publica o crea en borrador un post en WordPress.
+    Publica o crea en borrador un post en WordPress, con excerpt, Yoast meta
+    y categoría/tags resueltos contra whitelists.
+
     status: 'draft' | 'publish'
     """
     log("FASE 4 — Publicación en WordPress")
@@ -124,35 +157,52 @@ def publish_to_wordpress(
     wp_url = os.getenv("WP_URL", "").rstrip("/")
     headers = get_wp_headers()
 
-    # Resolver categoría
-    cat_id = None
-    if category:
-        cat_id = get_or_create_category(wp_url, category, headers)
-        log(f"Category: {category} (ID: {cat_id})")
+    # Categoría — solo whitelist, default a Best.
+    chosen_cat = (
+        category_name
+        if category_name in ALLOWED_CATEGORIES
+        else DEFAULT_CATEGORY
+    )
+    cat_id = resolve_term_id(wp_url, "categories", chosen_cat, headers)
+    log(f"Category: {chosen_cat} (ID: {cat_id})")
 
-    # Resolver tags
-    tag_ids = []
-    default_tags = ["ITSM", "IT Service Management", keyword]
-    all_tags = list(set((tags or []) + default_tags))
-    for tag in all_tags:
-        tag_id = get_or_create_tag(wp_url, tag, headers)
-        if tag_id:
-            tag_ids.append(tag_id)
-    log(f"Tags resolved: {len(tag_ids)}")
+    # Tags — filtramos al whitelist y resolvemos por slug. Sin crear.
+    canonical_tags = filter_to_whitelist(tag_names or [], ALLOWED_TAGS)
+    tag_ids: list[int] = []
+    for t in canonical_tags:
+        tid = resolve_term_id(wp_url, "tags", t, headers)
+        if tid:
+            tag_ids.append(tid)
+    log(f"Tags: {canonical_tags} → IDs {tag_ids}")
 
-    # Construir payload
-    payload = {
+    # Yoast SEO + subtitle del theme. Yoast Free desde v14 expone los meta al
+    # REST API. Si tu theme usa otra key para el subtitle, ajustar abajo.
+    meta: dict[str, object] = {}
+    if focus_keyword:
+        meta["_yoast_wpseo_focuskw"] = focus_keyword
+    if meta_description:
+        meta["_yoast_wpseo_metadesc"] = meta_description
+        # Best-effort para el subtitle del theme — probamos las keys más comunes.
+        meta["subtitle"] = meta_description
+        meta["_subtitle"] = meta_description
+        meta["wps_subtitle"] = meta_description
+    if cat_id:
+        meta["_yoast_wpseo_primary_category"] = cat_id
+
+    payload: dict[str, object] = {
         "title": title,
         "content": content_html,
         "status": status,
         "tags": tag_ids,
+        "excerpt": meta_description or "",
     }
     if cat_id:
         payload["categories"] = [cat_id]
     if featured_media_id:
         payload["featured_media"] = featured_media_id
+    if meta:
+        payload["meta"] = meta
 
-    # Crear post
     post_url = f"{wp_url}/wp-json/wp/v2/posts"
     log(f"Posting to: {post_url} as '{status}'")
 
@@ -164,7 +214,18 @@ def publish_to_wordpress(
         post_link = post_data.get("link", "")
         post_id = post_data.get("id")
         log(f"Post created! ID: {post_id} | URL: {post_link}")
-        return {"success": True, "id": post_id, "url": post_link, "status": status}
-    else:
-        print(f"ERROR posting: {resp.status_code} - {resp.text[:500]}")
-        return {"success": False, "error": resp.text, "status_code": resp.status_code}
+        return {
+            "success": True,
+            "id": post_id,
+            "url": post_link,
+            "status": status,
+            "category": chosen_cat,
+            "tags": canonical_tags,
+        }
+
+    log(f"ERROR posting: {resp.status_code} - {resp.text[:500]}")
+    return {
+        "success": False,
+        "error": resp.text,
+        "status_code": resp.status_code,
+    }
