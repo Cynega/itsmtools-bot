@@ -9,9 +9,10 @@ Fase 4 de la pipeline:
 import os
 import base64
 import httpx
-from rich.console import Console
 
-console = Console()
+
+def log(msg: str) -> None:
+    print(f"[publish] {msg}", flush=True)
 
 
 def get_wp_headers() -> dict:
@@ -65,7 +66,7 @@ def publish_to_wordpress(
     Publica o crea en borrador un post en WordPress.
     status: 'draft' | 'publish'
     """
-    console.rule("[bold blue]FASE 4 — Publicación en WordPress[/bold blue]")
+    log("FASE 4 — Publicación en WordPress")
 
     wp_url = os.getenv("WP_URL", "").rstrip("/")
     headers = get_wp_headers()
@@ -74,7 +75,7 @@ def publish_to_wordpress(
     cat_id = None
     if category:
         cat_id = get_or_create_category(wp_url, category, headers)
-        console.log(f"[cyan]Category:[/cyan] {category} (ID: {cat_id})")
+        log(f"Category: {category} (ID: {cat_id})")
 
     # Resolver tags
     tag_ids = []
@@ -84,7 +85,7 @@ def publish_to_wordpress(
         tag_id = get_or_create_tag(wp_url, tag, headers)
         if tag_id:
             tag_ids.append(tag_id)
-    console.log(f"[cyan]Tags resolved:[/cyan] {len(tag_ids)}")
+    log(f"Tags resolved: {len(tag_ids)}")
 
     # Construir payload
     payload = {
@@ -98,7 +99,7 @@ def publish_to_wordpress(
 
     # Crear post
     post_url = f"{wp_url}/wp-json/wp/v2/posts"
-    console.log(f"[cyan]Posting to:[/cyan] {post_url} as '{status}'")
+    log(f"Posting to: {post_url} as '{status}'")
 
     with httpx.Client(timeout=30) as client:
         resp = client.post(post_url, json=payload, headers=headers)
@@ -107,7 +108,7 @@ def publish_to_wordpress(
         post_data = resp.json()
         post_link = post_data.get("link", "")
         post_id = post_data.get("id")
-        console.log(f"[bold green]Post created![/bold green] ID: {post_id} | URL: {post_link}")
+        log(f"Post created! ID: {post_id} | URL: {post_link}")
         return {"success": True, "id": post_id, "url": post_link, "status": status}
     else:
         print(f"ERROR posting: {resp.status_code} - {resp.text[:500]}")

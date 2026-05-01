@@ -10,9 +10,10 @@ import os
 import base64
 import httpx
 from bs4 import BeautifulSoup
-from rich.console import Console
 
-console = Console()
+
+def log(msg: str) -> None:
+    print(f"[research] {msg}", flush=True)
 
 
 def get_auth_header() -> dict:
@@ -24,7 +25,7 @@ def get_auth_header() -> dict:
 
 def get_keyword_data(keyword: str, country: str = "US") -> dict:
     """Obtiene volumen, dificultad, CPC y keywords secundarias desde DataForSEO."""
-    console.log(f"[cyan]Fetching keyword data for:[/cyan] {keyword}")
+    log(f"Fetching keyword data for: {keyword}")
 
     # Keywords overview
     url = "https://api.dataforseo.com/v3/keywords_data/google_ads/search_volume/live"
@@ -45,13 +46,13 @@ def get_keyword_data(keyword: str, country: str = "US") -> dict:
     except (KeyError, IndexError, TypeError):
         result = {"volume": "N/A", "cpc": "N/A", "competition": "N/A", "monthly_searches": []}
 
-    console.log(f"[green]Volume:[/green] {result.get('volume')} | [green]CPC:[/green] {result.get('cpc')}")
+    log(f"Volume: {result.get('volume')} | CPC: {result.get('cpc')}")
     return result
 
 
 def get_related_keywords(keyword: str) -> list:
     """Obtiene keywords relacionadas y preguntas desde DataForSEO."""
-    console.log(f"[cyan]Fetching related keywords...[/cyan]")
+    log(f"Fetching related keywords...")
 
     url = "https://api.dataforseo.com/v3/dataforseo_labs/google/related_keywords/live"
     payload = [{
@@ -80,13 +81,13 @@ def get_related_keywords(keyword: str) -> list:
     except (KeyError, IndexError, TypeError):
         pass
 
-    console.log(f"[green]Related keywords found:[/green] {len(keywords)}")
+    log(f"Related keywords found: {len(keywords)}")
     return keywords
 
 
 def get_serp_top5(keyword: str, country: str = "US") -> list:
     """Obtiene los top 5 resultados orgánicos de Google USA para la keyword."""
-    console.log(f"[cyan]Fetching SERP top 5 USA for:[/cyan] {keyword}")
+    log(f"Fetching SERP top 5 USA for: {keyword}")
 
     url = "https://api.dataforseo.com/v3/serp/google/organic/live/advanced"
     payload = [{
@@ -117,13 +118,13 @@ def get_serp_top5(keyword: str, country: str = "US") -> list:
     except (KeyError, IndexError, TypeError):
         pass
 
-    console.log(f"[green]Top results found:[/green] {len(results)}")
+    log(f"Top results found: {len(results)}")
     return results
 
 
 def scrape_competitor(url: str) -> dict:
     """Extrae estructura (título, meta, H2s, H3s) de una URL competidora."""
-    console.log(f"[cyan]Scraping:[/cyan] {url}")
+    log(f"Scraping: {url}")
 
     headers = {
         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
@@ -135,7 +136,7 @@ def scrape_competitor(url: str) -> dict:
             resp.raise_for_status()
             html = resp.text
     except Exception as e:
-        console.log(f"[red]Error scraping {url}:[/red] {e}")
+        log(f"Error scraping {url}: {e}")
         return {"url": url, "error": str(e)}
 
     soup = BeautifulSoup(html, "lxml")
@@ -167,7 +168,7 @@ def scrape_competitor(url: str) -> dict:
     ]
     tools_found = [t for t in common_tools if t.lower() in body_text.lower()]
 
-    console.log(f"[green]Scraped:[/green] {len(h2s)} H2s | ~{word_count} words | {len(tools_found)} tools mentioned")
+    log(f"Scraped: {len(h2s)} H2s | ~{word_count} words | {len(tools_found)} tools mentioned")
 
     return {
         "url": url,
@@ -183,13 +184,13 @@ def scrape_competitor(url: str) -> dict:
 
 def run_research(keyword: str, country: str = "US") -> dict:
     """Ejecuta toda la fase de research y devuelve el contexto completo."""
-    console.rule("[bold blue]FASE 1 — Research[/bold blue]")
+    log("FASE 1 — Research")
 
     keyword_data = get_keyword_data(keyword, country)
     related_keywords = get_related_keywords(keyword)
     serp = get_serp_top5(keyword, country)
 
-    console.rule("[bold blue]FASE 2 — Scraping competidores[/bold blue]")
+    log("FASE 2 — Scraping competidores")
     competitors = []
     for result in serp:
         scraped = scrape_competitor(result["url"])

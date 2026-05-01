@@ -7,12 +7,13 @@ Fase 3 de la pipeline:
 """
 
 import os
-import json
 import anthropic
 from pathlib import Path
-from rich.console import Console
 
-console = Console()
+
+def log(msg: str) -> None:
+    print(f"[generate] {msg}", flush=True)
+
 
 PROMPTS_DIR = Path(__file__).parent.parent / "prompts"
 
@@ -75,14 +76,14 @@ Based on this research, write the full article. Follow all instructions in your 
 
 def generate_article(research: dict) -> str:
     """Llama a Claude API y devuelve el artículo en HTML."""
-    console.rule("[bold blue]FASE 3 — Generación con Claude[/bold blue]")
-    console.log(f"[cyan]Generating article for:[/cyan] {research['keyword']}")
+    log("FASE 3 — Generación con Claude")
+    log(f"Generating article for: {research['keyword']}")
 
     client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
     system_prompt = load_system_prompt()
     user_message = build_user_message(research)
 
-    console.log("[cyan]Calling Claude API...[/cyan]")
+    log("Calling Claude API...")
 
     message = client.messages.create(
         model="claude-sonnet-4-20250514",
@@ -93,6 +94,6 @@ def generate_article(research: dict) -> str:
 
     article_html = message.content[0].text
     word_count = len(article_html.split())
-    console.log(f"[green]Article generated:[/green] ~{word_count} words | {len(article_html)} chars")
+    log(f"Article generated: ~{word_count} words | {len(article_html)} chars")
 
     return article_html
