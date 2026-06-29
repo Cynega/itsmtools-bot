@@ -8,9 +8,16 @@ type JobStatus = "idle" | "running" | "done" | "error";
 
 type JobResult = {
   keyword: string;
+  step?: string;
   research?: { volume?: number | string; cpc?: number | string; competitors?: number };
   article?: { word_count?: number };
-  publish?: { success?: boolean; url?: string; id?: number; error?: string };
+  publish?: {
+    success?: boolean;
+    url?: string;
+    id?: number;
+    error?: string;
+    status_code?: number;
+  };
   error?: string;
 };
 
@@ -219,12 +226,24 @@ function JobCard({ job }: { job: Job }) {
         </div>
       )}
       {status === "error" && result && (
-        <p className="text-sm text-red-600 dark:text-red-400">
-          Error: {result.error || result.publish?.error || "fallo desconocido"}
+        <p className="break-words text-sm text-red-600 dark:text-red-400">
+          Error: {errorMessage(result)}
         </p>
       )}
     </article>
   );
+}
+
+function errorMessage(result: JobResult): string {
+  // El backend ya manda un mensaje legible (incluye el paso) en `error`.
+  if (result.error) return result.error;
+  // Caso publish: la API responde con publish.success=false y el detalle de WP.
+  if (result.publish && result.publish.success === false) {
+    const code = result.publish.status_code;
+    const detail = (result.publish.error || "respuesta inesperada de WordPress").slice(0, 300);
+    return `Falló en la publicación en WordPress${code ? ` (HTTP ${code})` : ""} — ${detail}`;
+  }
+  return "fallo desconocido";
 }
 
 function isValidMetric(v: unknown): v is number | string {

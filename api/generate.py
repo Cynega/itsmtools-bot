@@ -24,6 +24,8 @@ sys.path.insert(0, str(ROOT))
 
 import re
 
+import httpx
+
 from pipeline.research import run_research
 from pipeline.generate import generate_article
 from pipeline.publish import publish_to_wordpress, upload_media
@@ -106,9 +108,55 @@ def verify_auth_cookie(headers) -> bool:
     return hmac.compare_digest(mac, expected)
 
 
+class PipelineError(Exception):
+    """Error en un paso de la pipeline, con info segura para mostrar en la UI."""
+
+    def __init__(self, step: str, detail: str):
+        self.step = step
+        self.detail = detail
+        super().__init__(f"{step}: {detail}")
+
+
+# Etiquetas legibles por paso, para el mensaje que ve el usuario.
+STEP_LABELS = {
+    "research": "la investigación (DataForSEO / scraping)",
+    "generate": "la generación con Claude",
+    "publish": "la publicación en WordPress",
+}
+
+
+def _describe_error(exc: Exception) -> str:
+    """Resumen corto y SIN secretos del error, para devolver al cliente.
+
+    El traceback completo se sigue logueando en el servidor (Vercel).
+    """
+    if isinstance(exc, httpx.HTTPStatusError):
+        return f"HTTP {exc.response.status_code} de {exc.request.url.host}"
+    if isinstance(exc, httpx.RequestError):
+        host = exc.request.url.host if exc.request else "el servidor"
+        return f"no se pudo contactar a {host}"
+    status = getattr(exc, "status_code", None)
+    message = getattr(exc, "message", None)
+    if message is not None and not isinstance(message, str):
+        message = str(message)
+    if status is not None:
+        return f"HTTP {status}" + (f": {message[:200]}" if message else "")
+    if message:
+        return message[:200]
+    return type(exc).__name__
+
+
 def run_pipeline(keyword: str, country: str, status: str) -> dict:
-    research = run_research(keyword, country)
-    article = generate_article(research)
+    try:
+        research = run_research(keyword, country)
+    except Exception as e:
+        raise PipelineError("research", _describe_error(e)) from e
+
+    try:
+        article = generate_article(research)
+    except Exception as e:
+        raise PipelineError("generate", _describe_error(e)) from e
+
     article_html = article["html"]
     title = article.get("title") or fallback_title(keyword)
     image_query = article.get("image_query")
@@ -120,31 +168,41 @@ def run_pipeline(keyword: str, country: str, status: str) -> dict:
     wp_url = os.getenv("WP_URL", "").rstrip("/")
     featured_media_id: int | None = None
     image_used = False
-    image_meta = fetch_image(image_query) if image_query else None
-    if image_meta:
-        filename = f"{slugify(keyword)}-featured.jpg"
-        featured_media_id = upload_media(
-            wp_url=wp_url,
-            image_bytes=image_meta["bytes"],
-            mime=image_meta["mime"],
-            filename=filename,
-            alt_text=image_meta.get("alt") or image_query or keyword,
-        )
-        if featured_media_id:
-            article_html = article_html.rstrip() + "\n" + attribution_html(image_meta)
-            image_used = True
+    try:
+        image_meta = fetch_image(image_query) if image_query else None
+        if image_meta:
+            filename = f"{slugify(keyword)}-featured.jpg"
+            featured_media_id = upload_media(
+                wp_url=wp_url,
+                image_bytes=image_meta["bytes"],
+                mime=image_meta["mime"],
+                filename=filename,
+                alt_text=image_meta.get("alt") or image_query or keyword,
+            )
+            if featured_media_id:
+                article_html = article_html.rstrip() + "\n" + attribution_html(image_meta)
+                image_used = True
+    except Exception as e:
+        # La imagen es opcional: si falla, seguimos sin romper el post.
+        print(f"[api] image step failed (non-fatal): {_describe_error(e)}", flush=True)
+        image_meta = None
+        featured_media_id = None
+        image_used = False
 
-    publish = publish_to_wordpress(
-        title=title,
-        content_html=article_html,
-        keyword=keyword,
-        status=status,
-        tag_names=tag_names,
-        category_name=category_name,
-        meta_description=meta_description,
-        focus_keyword=keyword,
-        featured_media_id=featured_media_id,
-    )
+    try:
+        publish = publish_to_wordpress(
+            title=title,
+            content_html=article_html,
+            keyword=keyword,
+            status=status,
+            tag_names=tag_names,
+            category_name=category_name,
+            meta_description=meta_description,
+            focus_keyword=keyword,
+            featured_media_id=featured_media_id,
+        )
+    except Exception as e:
+        raise PipelineError("publish", _describe_error(e)) from e
     kd = research.get("keyword_data", {})
     return {
         "keyword": keyword,
@@ -225,6 +283,18 @@ class handler(BaseHTTPRequestHandler):
 
         try:
             result = run_pipeline(keyword, country, status)
+        except PipelineError as e:
+            print(f"[api] pipeline error at {e.step}: {e.detail}", flush=True)
+            label = STEP_LABELS.get(e.step, e.step)
+            self._send(
+                502,
+                {
+                    "keyword": keyword,
+                    "step": e.step,
+                    "error": f"Falló en {label} — {e.detail}",
+                },
+            )
+            return
         except Exception as e:
             print(f"[api] pipeline error: {e}", flush=True)
             self._send(500, {"keyword": keyword, "error": "pipeline failed"})

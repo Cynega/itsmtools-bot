@@ -7,7 +7,7 @@ Pipeline automatizada para generar y publicar artículos SEO en itsmtools.com (W
 - Python 3.11+
 - DataForSEO API → SERP data USA + keyword research
 - BeautifulSoup / httpx → scraping de competidores
-- Anthropic API (claude-sonnet-4-20250514) → generación del artículo
+- Anthropic API (claude-sonnet-4-6) → generación del artículo
 - WordPress REST API → publicación en borrador
 
 ## Pipeline (en orden)
